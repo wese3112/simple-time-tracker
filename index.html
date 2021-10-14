@@ -52,6 +52,7 @@
                         >
                             Clear All
                         </button>
+                        <!-- <input type="number" value="4.5" data-decimals="2" min="0" max="9" step="0.1"/> -->
                         <p class="ml-2" style="color: red" v-if="errorMessage.length > 0">Error! {{errorMessage}}</p>
                     </div>
                 </form>
@@ -133,6 +134,7 @@
                         this.newTime = "";
                     },
                     addCurrentTime: function () {
+                        this.errorMessage = "";
                         this.timeEntries.push(new Date());
                         this.timeEntries.sort();
                         localStorage.timeEntries = JSON.stringify(this.timeEntries);
