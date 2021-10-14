@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Timesheet</title>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+        integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/vue"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <!-- <div class="container" style="margin: 2cm;"> -->
+        <div class="container mt-5">
+            <!-- <div class="card">
+                <div class="card-body"> -->
+                    <h4 class="card-title">Timesheet</h4>
+                    <p class="card-text">Enter your come/go times to show how long you've already worked and when it's
+                        time to go :)</p>
+                    <form class="form-inline" @submit.prevent="addTime()">
+                        <div class="form-group mx-0">
+                            <input type="text" class="form-control" placeholder="Add time (e.g. 8:12)" v-model="newTime">
+                            <button type="button" class="btn btn-primary mx-2" @click="addTime()">Add</button>
+                            <button type="button" class="btn btn-danger" @click="clearAllEntries()" v-if="timeEntries.length > 0">Clear All</button>
+                            <p class="ml-2" style="color:red" v-if="errorMessage.length > 0">Error! {{errorMessage}}</p>
+                        </div> 
+                    </form>
+                    <ul class="list-group mt-3">
+                        <li v-for="(timeEntry, index) in timeEntries"
+                            class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ fmtTime(timeEntry) }}
+                            <button type="submit" class="btn btn-danger" @click="removeEntry(index)">
+                                <i class="fa fa-trash" aria-hidden="true"></i>
+                            </button>
+                        </li>
+                    </ul>
+                    <table class="table mt-3" v-if="timeEntries.length > 0">
+                        <thead>
+                            <tr>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>Working Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="entry in timePairs">
+                                <td scope="row">{{ fmtTime(entry.start) }}</td>
+                                <td>{{ fmtTime(entry.end) }}</td>
+                                <td>{{ entry.time_ind.toFixed(2) }} | {{ timeIndToHM(entry.time_ind) }}</td>
+                            </tr>
+                            <tr v-if="unfinishedStartTime">
+                                <td scope="row">{{ fmtTime(unfinishedStartTime) }}</td>
+                                <td><i>now ({{ fmtTime(new Date()) }})</i></td>
+                                <td><i>{{ currentWorkingTime.toFixed(2) }} | {{ timeIndToHM(currentWorkingTime) }}</i></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td></td>
+                                <td style="text-align: right;"><b>total</b></td>
+                                <td><b>
+                                    {{ totalTime.toFixed(2) }}h ({{ (7-totalTime).toFixed(2) }}h left)<br>
+                                    {{ timeIndToHM(totalTime) }} ({{ timeIndToHM(7-totalTime) }} left{{ (7-totalTime) > 0 ? " →" + fmtTime(endOfWork) : "" }})
+                                </b></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                <!-- </div>
+            </div> -->
+        </div>
+    </div>
+    <script>
+        let parseTime = (time) => {
+            let t = new Date()  // today
+            let [hour, minute] = time.split(':')
+            return new Date(t.getFullYear(), t.getMonth(), t.getDate(), hour, minute, 0, 0)
+        }
+
+        let App = new Vue({
+            el: '#app',
+            data: {
+                newTime: '',
+                errorMessage: '',
+                timeEntries: []
+            },
+            methods: {
+                addTime: function () {
+                    if (/^[1-9]?\d:[0-5]\d$/.test(this.newTime)) {
+                        this.errorMessage = ''
+                        this.timeEntries.push(parseTime(this.newTime))
+                        this.timeEntries.sort()
+
+                        // make it persistent
+                        localStorage.timeEntries = JSON.stringify(this.timeEntries)
+                    } else {
+                        this.errorMessage = `Wrong input: "${this.newTime}". Insert time like HH:MM or H:MM (7:16, 14:34, ...)`
+                    }
+                    this.newTime = ''
+                },
+                fmtTime: function (tt) {
+                    return tt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                },
+                removeEntry: function (index) {
+                    this.timeEntries.splice(index, 1)
+                    localStorage.timeEntries = JSON.stringify(this.timeEntries)
+                },
+                clearAllEntries: function () {
+                    this.timeEntries = []
+                    localStorage.timeEntries = ''
+                },
+                timeIndToHM: function (indTime) {
+                    let duration = Math.floor((60 * (indTime % 1))).toString() + 'm'
+                    if (indTime > 1) {
+                        duration = Math.floor(indTime).toString() + 'h ' + duration
+                    }
+                    return duration
+                }
+            },
+            mounted() {
+                if (localStorage.timeEntries) {
+                    this.timeEntries = JSON.parse(localStorage.timeEntries).map( x => new Date(x))
+                }
+            },
+            computed: {
+                timePairs: function () {
+                    let pairs = []
+                    for (ii = 1; ii < this.timeEntries.length; ii += 2) {
+                        pairs.push({
+                            start: this.timeEntries[ii-1],
+                            end: this.timeEntries[ii],
+                            time_hm: 'tbd.',
+                            time_ind: (this.timeEntries[ii] - this.timeEntries[ii-1])/3600000
+                        })
+                    }
+                    return pairs
+                },
+                totalTime: function () {
+                    if (this.timePairs.length > 0) {
+                        let openTime = this.currentWorkingTime ? this.currentWorkingTime : 0
+                        return this.timePairs.map( x => x.time_ind ).reduce( (a, b) => a + b ) + openTime
+                    } else {
+                        return 0
+                    }
+                },
+                unfinishedStartTime: function () {
+                    if (this.timeEntries.length % 2 == 0) {
+                        return null
+                    } else {
+                        return this.timeEntries.slice(-1)[0]
+                    }
+                },
+                currentWorkingTime: function() {
+                    if (this.unfinishedStartTime && this.unfinishedStartTime < new Date()) {
+                        return (new Date() - this.unfinishedStartTime)/3600000
+                    } else {
+                        return null
+                    }
+                },
+                endOfWork: function() {
+                    if (this.totalTime != 0) {
+                        let now = new Date()
+                        let timeLeft = (7 - this.totalTime)*3600000
+                        return new Date(now.getTime() + timeLeft)
+                    } else {
+                        return null
+                    }
+                }
+            }
+        })
+    </script>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
