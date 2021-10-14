@@ -134,7 +134,7 @@
                     },
                     addCurrentTime: function () {
                         this.timeEntries.push(new Date());
-                        this.timeEntries.sourt();
+                        this.timeEntries.sort();
                         localStorage.timeEntries = JSON.stringify(this.timeEntries);
                     },
                     fmtTime: function (tt) {
